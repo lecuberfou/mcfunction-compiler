@@ -1,0 +1,19 @@
+<button id=download>Download</button>
+<script type="text/javascript">
+	txt = false;
+	fetch('https://raw.githubusercontent.com/lecuberfou/mcfunction-compiler/master/src/index.js').then(function (data) {
+		data.text().then(function (text) {
+			eval(text); txt = text;
+			console.log(text);
+			document.getElementById('download').addEventListener('click', function () {
+				compiler = new MinecraftCompiler();
+				compiler.compile().then(function (pack) {
+					Object.assign(document.createElement('a'), {
+						href:URL.createObjectURL(pack), download:'pack.zip'
+					}).click();
+				})
+			})
+		});
+	});
+
+</script>
