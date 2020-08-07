@@ -21,23 +21,71 @@ MinecraftCompiler = class MinecraftCompiler {
 		this.files[name] = content;
 	}
 
+	resetCompilationSpace () {
+		
+	}
+
 	compile () {
 		return new Promise (function (resolve, reject) {
 
-			var zip = new JSZip();
+			try {
+				var zip = new JSZip();
 
-			zip.file('pack.mcmeta', `{"pack": {"pack_format": 5,"description": "The default data for Minecraft"}}`);
+				zip.file('pack.mcmeta', `{"pack": {"pack_format": 5,"description": "compiled mc++ code"}}`);
 
-			/*zip.file(`data/${this.namespace}/tags/functions/`);
-			zip.file(`data/${this.namespace}/tags/functions/`);*/
-			zip.file(`data/${this.namespace}/functions/test.mcfunction`, "say Hello world!");
+				/*zip.file(`data/minecraft/tags/functions/tick.json`);
+				zip.file(`data/minecraft/tags/functions/load.json`);*/
+				zip.file(`data/${this.namespace}/functions/test.mcfunction`, "say Hello world!");
 
-			var functions = {};
-			
-			// do some computation
-			
-			zip.generateAsync({type:'blob'}).then(resolve);
+				//var functions = {};
+
+				this.resetCompilationSpace();
+				for (var file of Object.keys(this.files)) {
+					this.compileFile(file);
+				}
+		
+				zip.generateAsync({type:'blob'}).then(resolve).catch(reject);
+			} catch (err) {
+				reject(err);
+			}
 
 		}.bind(this));
+	}
+
+	compileFile (file) {
+		var i=0;
+		var content = this.files[file];
+
+		this.readFuncs(content);
+	}
+
+	readFunctions (content) {
+		while (i < content.length) {
+			if (/^\s*$/.test(content[i])) { i++; continue; }
+
+			// TYPE (int, void, etc)
+			var type = '';
+			while (!/^\s*$/.test(content[i])) { type += content[i]; i++; }
+
+			// ESPACE (obligatoire)
+			while (/^\s*$/.test(content[i])) { i++; }
+
+			// NOM (tick, load)
+			var end = i;
+			while (/^[a-zA-Z_$][a-zA-Z_$0-9]*$/.test(content.slice(i,end+1))) { end++; }
+			var name = content.slice(i,end);
+
+			// ESPACE (optionnel)
+			while (/^\s*$/.test(content[i])) { i++; }
+
+			// { /* code */ }
+		}
+	}
+
+	readInstructions (content) {
+		while (i < content.length) {
+			if (/^\s*$/.test(content[i])) { i++; continue; }
+			var type = content.slice(i).split(/^\s*$/);
+		}
 	}
 }
