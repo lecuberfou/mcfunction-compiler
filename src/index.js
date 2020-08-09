@@ -10,6 +10,11 @@ MinecraftCompiler = class MinecraftCompiler {
 		this.files = {};
 
 		this.namespace = 'mccompiler';
+
+		this.type_parsers = {
+			'int':function (v) {},
+			'void':function (v) {}
+		}
 	}
 
 	setFile (name, content) {
@@ -53,39 +58,121 @@ MinecraftCompiler = class MinecraftCompiler {
 	}
 
 	compileFile (file) {
-		var i=0;
-		var content = this.files[file];
+		this.currentFile_content = this.files[file];
+		this.currentFile_offset = 0;
 
-		this.readFuncs(content);
-	}
+		while (this.currentFile_offset < this.currentFile_content.length) {
 
-	readFunctions (content) {
-		while (i < content.length) {
-			if (/^\s*$/.test(content[i])) { i++; continue; }
+			this.readSpace();
 
-			// TYPE (int, void, etc)
-			var type = '';
-			while (!/^\s*$/.test(content[i])) { type += content[i]; i++; }
+			// TYPE
+			var type = this.readType();
+			this.readSpace();
 
-			// ESPACE (obligatoire)
-			while (/^\s*$/.test(content[i])) { i++; }
+			// NOM
+			var name = this.readVarName();
+			if (['tick','load'].includes(name) && type !== 'void') { throw new SyntaxError(`Function ${name} has to be a void`); }
 
-			// NOM (tick, load)
-			var end = i;
-			while (/^[a-zA-Z_$][a-zA-Z_$0-9]*$/.test(content.slice(i,end+1))) { end++; }
-			var name = content.slice(i,end);
+			// PARAMÈTRES
+			this.readSpace();
+			this.readChar('(');
+			this.readSpace();
+			var parameters = [];
+			while (!this.readChar(')',false)) { // Tant que c'est pas un parenthèse fermante
+				if (parameters.length > 0) { this.readChar(','); }
 
-			// ESPACE (optionnel)
-			while (/^\s*$/.test(content[i])) { i++; }
+				var param = {type: this.readType()};
+				parameters.push(param);
+				this.readSpace();
+				param.name = this.readName();
+				this.readSpace();
+				if (this.readChar('=',false)) {
+					this.readSpace();
+					param.default = this.readVal(param.type);
+					this.readSpace();
+				}
+			}
+			this.readSpace();
 
-			// { /* code */ }
+			// CONTENU
+			this.readChar('{');
+			this.readSpace();
+			while (!this.readChar('}',false)) { // Tant que c'est pas un accolade fermante
+				
+				this.readChar(); // temporaire
+			
+			}
+			
+			this.readSpace();
 		}
 	}
 
-	readInstructions (content) {
+	readChar (req_char=null, error=true) {
+		if (req_char == null) { // Lit un caractère
+			if (this.currentFile_offset < this.currentFile_content.length) {
+				return this.currentFile_content[this.currentFile_offset++];
+			} else {
+				throw new SyntaxError(`Unexpected end of file at position ${this.currentFile_offset}`);
+			}
+		} else { // Attend un caractère spécifique
+			if (this.currentFile_offset < this.currentFile_content.length) {
+				if (this.currentFile_content[this.currentFile_offset++] === req_char) {
+					return true;
+				} else {
+					this.currentFile_offset--;
+					if (error) { throw new SyntaxError(`Unexpected character ${this.currentFile_content[this.currentFile_offset]} at position ${this.currentFile_offset}, expected ${req_char}`)
+					} else { return false; }
+				}
+			} else {
+				throw new SyntaxError(`Unexpected end of file at position ${this.currentFile_offset}`);
+			}
+		}
+	}
+
+	readSpace () {
+		var ok = true;
+		while (ok) {
+			try {
+				if (!/^[\s\r\n]*$/.test(this.readChar())) {
+					ok = false;
+					this.currentFile_offset--;
+				}
+			} catch (err) {
+				ok = false;
+			}
+		}
+	}
+
+	readType () {
+		var type = '';
+		do {
+			type += this.readChar();
+		} while (/^[a-zA-Z_$][a-zA-Z_$0-9]*$/.test(type));
+
+		this.currentFile_offset--;
+		type = type.slice(0,-1);
+
+		if (!this.type_parsers[type]) { throw new SyntaxError(`Invalid type at position ${i}`); }
+
+		return type;
+	}
+
+	readVarName () {
+		var name = '';
+		do {
+			name += this.readChar();
+		} while (/^[a-zA-Z_$][a-zA-Z_$0-9]*$/.test(name));
+
+		this.currentFile_offset--;
+		name = name.slice(0,-1);
+
+		return name;
+	}
+
+	/*readInstructions (content, offset) {
 		while (i < content.length) {
 			if (/^\s*$/.test(content[i])) { i++; continue; }
 			var type = content.slice(i).split(/^\s*$/);
 		}
-	}
+	}*/
 }
