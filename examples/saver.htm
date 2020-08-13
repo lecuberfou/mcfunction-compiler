@@ -6,11 +6,12 @@
 			
 			document.getElementById('download').addEventListener('click', function () {
 				compiler = new MinecraftCompiler();
+				compiler.setFile('main',`void load () {}`);
 				compiler.compile().then(function (pack) {
 					Object.assign(document.createElement('a'), {
 						href:URL.createObjectURL(pack), download:'pack.zip'
 					}).click();
-				})
+				}).catch(function (err) { alert('Compilation Error :\n'+err); })
 			})
 		});
 	});
