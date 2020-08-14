@@ -16,6 +16,7 @@ MinecraftCompiler = class MinecraftCompiler {
 		this.spaceRegEx = /^[\s\r\n]*$/;
 		this.operators = ['+','*','-','/','%'];
 		this.assignements = ['+=','*=','-=','/=','%=','='];
+		this.comparators = ['<','>','==','!='];
 
 		this.types = {
 			'byte':function (v) { if (/^[-+]?[0-9]*$/.test(v)) { return parseInt(v); } return false; }, // 8
@@ -132,7 +133,7 @@ MinecraftCompiler = class MinecraftCompiler {
 			this.readSpace();
 
 			// NOM
-			var name = this.readVal('varname');
+			var name = this.readVal('varname').value;
 			if (['tick','load'].includes(name) && type !== 'void') { throw new SyntaxError(`Function ${name} has to be a void`); }
 
 			var currentPath = `${file}/${name}`;
@@ -191,7 +192,7 @@ MinecraftCompiler = class MinecraftCompiler {
 					} else { return false; }
 				}
 			} else {
-				throw new SyntaxError(`Unexpected end of file at position ${this.currentFile_offset}`);
+				throw new SyntaxError(`Unexpected end of file at position ${this.currentFile_offset}, expected character ${req_char}`);
 			}
 		}
 	}
@@ -212,7 +213,7 @@ MinecraftCompiler = class MinecraftCompiler {
 
 	readType (type=null) {
 		if (type === null) {
-			var type = this.readVal('varname');
+			var type = this.readVal('varname').value;
 
 			if (!this.types[type]) { throw new SyntaxError(`Invalid type at position ${this.currentFile_offset}`); }
 
@@ -223,7 +224,7 @@ MinecraftCompiler = class MinecraftCompiler {
 	}
 
 	readInstruction (currentPath) {
-		var instruction = this.readVal('varname');
+		var instruction = this.readVal('varname').value;
 		var result = '';
 		if (instruction == 'if') {
 			this.readSpace();
@@ -234,7 +235,7 @@ MinecraftCompiler = class MinecraftCompiler {
 				var type = instruction;
 				do {
 					this.readSpace();
-					var name = this.readVal('varname');
+					var name = this.readVal('varname').value;
 					var variable = `${currentPath}.${name}`;
 					if (!this.variables[variable]) { this.variables[variable] = undefined; }
 					this.readSpace();
@@ -247,7 +248,7 @@ MinecraftCompiler = class MinecraftCompiler {
 						result += `scoreboard players set ${res_variable.map} ${this.namespace}._ints ${Math.max(-2147483648,Math.min(2147483647,parseInt((value.value||0))))}\n`;
 					} else if (type === 'string') {
 						//var result += `data modify storage ${this.namespace}:_strings ${this.varPrefix}${variable} set value "${value.replace(/"/g, '\\"')}"\n`;
-						result += `data modify storage ${this.namespace}:_strings ${res_variable.map} set value "${JSON.stringify(value)}"\n`;
+						result += `data modify storage ${this.namespace}:_strings ${res_variable.map} set value ${JSON.stringify(value.value)}\n`;
 					}
 				} while (this.readChar(',', false));
 				this.readSpace();
@@ -262,10 +263,10 @@ MinecraftCompiler = class MinecraftCompiler {
 	readVal (type=null) {
 		var ok = true;
 
-		var result = {"value":""};
+		var result = {"value":"","precalc-lines":""};
 		
 		var first_chr = this.readChar();
-		if ([`"`,`'`].includes(chr)) { // STRING
+		if ([`"`,`'`].includes(first_chr)) { // STRING
 			result.type = 'string';
 			var ok = true;
 			var meta = false;
@@ -333,7 +334,7 @@ MinecraftCompiler = class MinecraftCompiler {
 		if (type === null) {
 			return result;
 		} else if (result.type === type) {
-			return result.value;
+			return result;
 		} else {
 			throw new SyntaxError(`Unexpected ${result.type} at position ${this.currentFile_offset}, expected ${type}`);
 		}
